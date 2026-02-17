@@ -11,10 +11,14 @@ import CoreData
 struct ContentView: View {
    
     @StateObject private var onboardingController = OnboardingController()
+    let context = PersistenceController.shared.container.viewContext
+    private let dashboardController =  DashboardController(context: PersistenceController.shared.container.viewContext)
+
 
     var body: some View {
         if onboardingController.hasSeenOnboarding {
-            DashboardScreen()
+           
+            DashboardScreen(controller:dashboardController)
         } else {
             OnboardingViewScreen(controller: onboardingController)
         }

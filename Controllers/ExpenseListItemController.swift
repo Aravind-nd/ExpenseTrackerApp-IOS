@@ -15,7 +15,8 @@ final class ExpenseListItemController: ObservableObject {
     @Published var expenses: [Expense] = []
 
     private let context: NSManagedObjectContext
-    private let category: String
+    public let category: String
+
 
     @Published var sortKey: SortKey = .date
     @Published var isAscending: Bool = false

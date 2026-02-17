@@ -1,9 +1,3 @@
-//
-//  AnalyticsController.swift
-//  ExpenseTracker_MVC
-//
-//  Created by Aravind sai Savaram on 16/02/26.
-//
 
 import SwiftUI
 import CoreData
@@ -18,17 +12,6 @@ final class AnalyticsController: ObservableObject {
     @Published var expenses: [Expense] = []
     @Published var selectedMonth: Date = Date()
     
-    // Colors for categories
-    let categoryColors: [String: Color] = [
-        "Food": .orange,
-        "Transport": .blue,
-        "Shopping": .pink,
-        "Bills": .green,
-        "Entertainment": .purple,
-        "Health": .red,
-        "Other": .gray
-    ]
-    
     init(context: NSManagedObjectContext) {
         self.context = context
         fetchExpenses()
@@ -40,12 +23,13 @@ final class AnalyticsController: ObservableObject {
         
         do {
             expenses = try context.fetch(request)
+            // Update dynamic categories whenever expenses change
+            CategoryManager.shared.updateDynamicCategories(from: expenses)
         } catch {
             print("Failed to fetch expenses: \(error.localizedDescription)")
         }
     }
     
-    // Filter expenses by selected month
     var filteredExpenses: [Expense] {
         expenses.filter {
             guard let date = $0.date else { return false }
@@ -57,12 +41,14 @@ final class AnalyticsController: ObservableObject {
     var categoryData: [CategorySpending] {
         let grouped = Dictionary(grouping: filteredExpenses) { $0.category ?? "Other" }
         return grouped.map { key, values in
-            CategorySpending(
+            let color = CategoryManager.shared.color(for: key) // get dynamic color
+            return CategorySpending(
                 category: key,
                 amount: values.reduce(0) { $0 + $1.amount },
-                color: categoryColors[key] ?? .gray
+                color: color
             )
         }
+        .sorted { $0.amount > $1.amount }
     }
     
     // MARK: - Daily Line Chart Data

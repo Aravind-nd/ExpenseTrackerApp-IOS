@@ -7,22 +7,9 @@
 
 
 
-//
-//  EditExpenseScreen.swift
-//  ExpenseTracker_MVC
-//
 
-//
-//  EditExpenseScreen.swift
-//  ExpenseTracker_MVC
-//
 import SwiftUI
 import CoreData
-import Combine
-import Foundation
-
-
-
 
 protocol ExpenseRefreshingController {
     func fetchExpenses()
@@ -31,13 +18,15 @@ protocol ExpenseRefreshingController {
 extension ExpenseListController: ExpenseRefreshingController {}
 extension ExpenseListItemController: ExpenseRefreshingController {}
 
+
 struct EditExpenseScreen: View {
 
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) private var dismiss
 
     @ObservedObject var expense: Expense
-    var listController: ExpenseRefreshingController  // <- generalized protocol
+    var listController: ExpenseRefreshingController  // generalized protocol
+    @ObservedObject private var categoryManager = CategoryManager.shared
 
     // MARK: - State
     @State private var selectedCategory: String
@@ -47,7 +36,6 @@ struct EditExpenseScreen: View {
     @State private var note: String
     @State private var showAlert = false
 
-    private let categories = ["Food", "Transport", "Shopping", "Bills", "Entertainment", "Health", "Other"]
     private let paymentMethods = ["Cash", "Card", "UPI"]
 
     private let decimalFormatter: NumberFormatter = {
@@ -88,8 +76,9 @@ struct EditExpenseScreen: View {
                     Text("Category").frame(width: 140, alignment: .leading).font(.title3.weight(.semibold))
                     Spacer()
                     Picker("Category", selection: $selectedCategory) {
-                        ForEach(categories, id: \.self) { Text($0).tag($0) }
-                    }.pickerStyle(.menu)
+                        ForEach(categoryManager.currentCategories, id: \.self) { Text($0).tag($0) }
+                    }
+                    .pickerStyle(.menu)
                 }
                 Divider()
 
@@ -108,7 +97,8 @@ struct EditExpenseScreen: View {
                     Spacer()
                     Picker("Payment Method", selection: $selectedPaymentMethod) {
                         ForEach(paymentMethods, id: \.self) { Text($0).tag($0) }
-                    }.pickerStyle(.menu)
+                    }
+                    .pickerStyle(.menu)
                 }
                 Divider()
 
@@ -122,8 +112,23 @@ struct EditExpenseScreen: View {
 
                 // Buttons
                 HStack(spacing: 16) {
-                    Button(role: .destructive) { deleteExpense() } label: { Text("Delete").foregroundColor(.white).padding().frame(maxWidth: .infinity).background(Color.red).cornerRadius(10) }
-                    Button { saveChanges() } label: { Text("Save").foregroundColor(.white).padding().frame(maxWidth: .infinity).background(Color.blue).cornerRadius(10) }
+                    Button(role: .destructive) { deleteExpense() } label: {
+                        Text("Delete")
+                            .foregroundColor(.white)
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color.red)
+                            .cornerRadius(10)
+                    }
+
+                    Button { saveChanges() } label: {
+                        Text("Save")
+                            .foregroundColor(.white)
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color.blue)
+                            .cornerRadius(10)
+                    }
                 }
             }
             .padding()
@@ -133,6 +138,10 @@ struct EditExpenseScreen: View {
         .alert("Success", isPresented: $showAlert) {
             Button("OK") { dismiss() }
         } message: { Text("Expense updated successfully!") }
+        .onAppear {
+            // Update dynamic categories whenever this screen appears
+            categoryManager.updateDynamicCategories(from: [expense])
+        }
     }
 
     private func saveChanges() {
@@ -141,10 +150,12 @@ struct EditExpenseScreen: View {
         expense.date = selectedDate
         expense.paymentMethod = selectedPaymentMethod
         expense.note = note
+        expense.symbolName = ExpenseController(context: viewContext).symbolForCategory(selectedCategory)
 
         do {
             if viewContext.hasChanges { try viewContext.save() }
             listController.fetchExpenses()
+            categoryManager.updateDynamicCategories(from: [expense])
             showAlert = true
         } catch { print("Failed to save: \(error.localizedDescription)") }
     }
@@ -154,6 +165,7 @@ struct EditExpenseScreen: View {
         do {
             try viewContext.save()
             listController.fetchExpenses()
+            categoryManager.updateDynamicCategories(from: [])
             dismiss()
         } catch { print("Failed to delete: \(error.localizedDescription)") }
     }

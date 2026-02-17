@@ -12,7 +12,7 @@ import Combine
 struct ExpenseListScreen: View {
     @Environment(\.managedObjectContext) private var viewContext
     @StateObject private var controller: ExpenseListController
-    private let categories = ["Food", "Transport", "Shopping", "Bills", "Entertainment", "Other"]
+    @ObservedObject private var categoryManager = CategoryManager.shared
 
     init(context: NSManagedObjectContext) {
         _controller = StateObject(wrappedValue: ExpenseListController(context: context))
@@ -37,17 +37,21 @@ struct ExpenseListScreen: View {
                 // Categories scroll
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        ForEach(categories, id: \.self) { category in
-                            NavigationLink(
-                                destination: ExpenseListItemScreen(context: viewContext, category: category)
-                            ) {
-                                Text(category)
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 8)
-                                    .background(Color.blue)
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                        ForEach(categoryManager.currentCategories, id: \.self) { category in
+                            // Only show categories that have expenses OR are default
+                            let hasExpenses = controller.expenses.contains { $0.category == category }
+                            if hasExpenses || categoryManager.defaultCategories.contains(category) {
+                                NavigationLink(
+                                    destination: ExpenseListItemScreen(context: viewContext, category: category)
+                                ) {
+                                    Text(category)
+                                        .font(.headline)
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 8)
+                                        .background(categoryManager.color(for: category))
+                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                }
                             }
                         }
                     }
@@ -107,7 +111,7 @@ struct ExpenseListScreen: View {
                                 HStack {
                                     HStack(spacing: 10) {
                                         Image(systemName: expense.symbolName ?? "creditcard.fill")
-                                            .foregroundColor(.blue)
+                                            .foregroundColor(categoryManager.color(for: expense.category ?? "Other"))
                                         Text(expense.note ?? "No note")
                                     }
                                     Spacer()
@@ -131,6 +135,10 @@ struct ExpenseListScreen: View {
                     .listStyle(.plain)
                 }
             }
+        }
+        .onAppear {
+            // Update dynamic categories whenever this screen appears
+            categoryManager.updateDynamicCategories(from: controller.expenses)
         }
     }
 }

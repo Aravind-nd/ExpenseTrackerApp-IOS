@@ -1,6 +1,6 @@
-//
-//  AddExpense.swift
-//  ET
+
+//  AddExpenseScreen.swift
+//  ExpenseTracker_MVC
 //
 
 import SwiftUI
@@ -10,7 +10,6 @@ import Combine
 struct AddExpenseScreen: View {
 
     @Environment(\.managedObjectContext) private var viewContext
-    
     @StateObject private var controller: AddExpenseController
 
     // MARK: - State
@@ -23,17 +22,15 @@ struct AddExpenseScreen: View {
     @State private var note: String = ""
     @State private var showAlert: Bool = false
 
+    // Add Category popup
+    @State private var showingAddCategoryAlert = false
+    @State private var newCategoryName = ""
+
     // MARK: - Init
     init(context: NSManagedObjectContext? = nil) {
         let ctx = context ?? PersistenceController.shared.container.viewContext
         _controller = StateObject(wrappedValue: AddExpenseController(context: ctx))
     }
-
-    // MARK: - Data
-    let categories = [
-        "Select Category", "Food", "Transport", "Shopping",
-        "Bills", "Entertainment", "Other"
-    ]
 
     let paymentMethods = ["Cash", "Card", "UPI"]
 
@@ -65,9 +62,7 @@ struct AddExpenseScreen: View {
                 paymentMethod: selectedPaymentMethod,
                 note: note
             )
-            
             showAlert = true
-            
         } catch {
             print("Failed to save expense: \(error)")
         }
@@ -84,7 +79,6 @@ struct AddExpenseScreen: View {
     // MARK: - View
     var body: some View {
         VStack {
-
             Text("Add Expense")
                 .font(.largeTitle)
                 .fontWeight(.bold)
@@ -95,19 +89,13 @@ struct AddExpenseScreen: View {
 
                 // Amount
                 HStack {
-                    Text("Amount")
-                        .font(.title3)
-                        .fontWeight(.semibold)
-
+                    Text("Amount").font(.title3).fontWeight(.semibold)
                     Spacer()
-
                     TextField(
                         "$0.00",
                         value: $amount,
                         formatter: isEditingAmount ? decimalFormatter : currencyFormatter,
-                        onEditingChanged: { editing in
-                            isEditingAmount = editing
-                        }
+                        onEditingChanged: { editing in isEditingAmount = editing }
                     )
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.trailing)
@@ -118,30 +106,35 @@ struct AddExpenseScreen: View {
 
                 // Category
                 HStack {
-                    Text("Category")
-                        .font(.title3)
-                        .fontWeight(.semibold)
-
+                    Text("Category").font(.title3).fontWeight(.semibold)
                     Spacer()
 
-                    Picker("Category", selection: $selectedCategory) {
-                        ForEach(categories, id: \.self) { cat in
-                            Text(cat).tag(cat)
+                    Menu {
+                        // Show all categories from CategoryManager
+                        ForEach(CategoryManager.shared.currentCategories, id: \.self) { cat in
+                            Button(cat) { selectedCategory = cat }
                         }
+                        Divider()
+                        Button("Add Category") { showingAddCategoryAlert = true }
+                    } label: {
+                        HStack {
+                            Text(selectedCategory)
+                            Image(systemName: "chevron.down")
+                                .font(.caption)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background(Color.gray.opacity(0.2))
+                        .cornerRadius(8)
                     }
-                    .pickerStyle(.menu)
                 }
 
                 Divider()
 
                 // Date
                 HStack {
-                    Text("Date")
-                        .font(.title3)
-                        .fontWeight(.semibold)
-
+                    Text("Date").font(.title3).fontWeight(.semibold)
                     Spacer()
-
                     DatePicker("", selection: $selectedDate, displayedComponents: .date)
                         .labelsHidden()
                 }
@@ -150,12 +143,8 @@ struct AddExpenseScreen: View {
 
                 // Payment Method
                 HStack {
-                    Text("Payment Method")
-                        .font(.title3)
-                        .fontWeight(.semibold)
-
+                    Text("Payment Method").font(.title3).fontWeight(.semibold)
                     Spacer()
-
                     Picker("Payment Method", selection: $selectedPaymentMethod) {
                         ForEach(paymentMethods, id: \.self) { method in
                             Text(method)
@@ -168,12 +157,8 @@ struct AddExpenseScreen: View {
 
                 // Note
                 HStack {
-                    Text("Note")
-                        .font(.title3)
-                        .fontWeight(.semibold)
-
+                    Text("Note").font(.title3).fontWeight(.semibold)
                     Spacer()
-
                     TextField("Optional", text: $note)
                         .multilineTextAlignment(.trailing)
                         .frame(width: 200)
@@ -185,33 +170,37 @@ struct AddExpenseScreen: View {
 
             // Buttons
             HStack(spacing: 16) {
+                Button("Cancel") { resetForm() }
+                    .frame(minWidth: 120, minHeight: 44)
+                    .background(Color.gray)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
 
-                Button("Cancel") {
-                    resetForm()
-                }
-                .frame(minWidth: 120, minHeight: 44)
-                .background(Color.gray)
-                .foregroundColor(.white)
-                .cornerRadius(10)
-
-                Button("Save") {
-                    handleSave()
-                }
-                .frame(minWidth: 160, minHeight: 44)
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(10)
-                .disabled(amount <= 0 || selectedCategory == "Select Category")
+                Button("Save") { handleSave() }
+                    .frame(minWidth: 160, minHeight: 44)
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                    .disabled(amount <= 0 || selectedCategory == "Select Category")
             }
             .padding()
         }
         .alert("Success", isPresented: $showAlert) {
-            Button("OK", role: .cancel) {
-                resetForm()
-            }
+            Button("OK", role: .cancel) { resetForm() }
         } message: {
             Text("Expense successfully saved!")
         }
+        // MARK: - Add Category Alert
+        .alert("Add New Category", isPresented: $showingAddCategoryAlert) {
+            TextField("Category Name", text: $newCategoryName)
+            Button("Add") {
+                CategoryManager.shared.addCategory(newCategoryName)
+                selectedCategory = newCategoryName
+                newCategoryName = ""
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Enter a new category name")
+        }
     }
 }
-

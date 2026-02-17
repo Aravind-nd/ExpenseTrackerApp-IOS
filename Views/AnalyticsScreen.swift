@@ -298,7 +298,3 @@ struct SpendingPieChart: View {
 
 
 
-#Preview {
-    AnalyticsScreen()
-        .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
-}

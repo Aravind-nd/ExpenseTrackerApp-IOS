@@ -3,15 +3,6 @@
 //  ExpenseTracker_MVC
 //
 
-//
-//  ExpenseListItemScreen.swift
-//  ExpenseTracker_MVC
-//
-
-//
-//  ExpenseListItemScreen.swift
-//  ExpenseTracker_MVC
-//
 
 import SwiftUI
 import CoreData
@@ -19,6 +10,7 @@ import CoreData
 struct ExpenseListItemScreen: View {
     @StateObject private var controller: ExpenseListItemController
     @Environment(\.managedObjectContext) private var viewContext
+    @ObservedObject private var categoryManager = CategoryManager.shared
 
     init(context: NSManagedObjectContext, category: String) {
         _controller = StateObject(wrappedValue: ExpenseListItemController(context: context, category: category))
@@ -57,7 +49,7 @@ struct ExpenseListItemScreen: View {
             ScrollView {
                 LazyVStack(spacing: 12) {
                     if controller.expenses.isEmpty {
-                        Text("No expenses in \(controller.expenses.first?.category ?? controller.expenses.first?.category ?? "this category")")
+                        Text("No expenses in \(controller.category)")
                             .foregroundStyle(.secondary)
                             .padding(.top, 40)
                     }
@@ -69,10 +61,10 @@ struct ExpenseListItemScreen: View {
                             HStack(spacing: 16) {
                                 ZStack {
                                     Circle()
-                                        .fill(Color.blue.opacity(0.2))
+                                        .fill(categoryManager.color(for: expense.category ?? "Other").opacity(0.2))
                                         .frame(width: 50, height: 50)
                                     Image(systemName: expense.symbolName ?? "creditcard.fill")
-                                        .foregroundColor(.blue)
+                                        .foregroundColor(categoryManager.color(for: expense.category ?? "Other"))
                                         .font(.system(size: 24))
                                 }
 
@@ -104,6 +96,7 @@ struct ExpenseListItemScreen: View {
                         .swipeActions {
                             Button(role: .destructive) {
                                 controller.deleteExpense(expense)
+                                categoryManager.updateDynamicCategories(from: controller.expenses)
                             } label: {
                                 Label("Delete", systemImage: "trash")
                             }
@@ -113,16 +106,12 @@ struct ExpenseListItemScreen: View {
                 .padding(.horizontal)
             }
         }
-        .navigationTitle(controller.expenses.first?.category ?? "")
+        .navigationTitle(controller.category)
         .navigationBarTitleDisplayMode(.inline)
         .padding(.top)
-    }
-}
-
-#Preview {
-    let context = PersistenceController.preview.container.viewContext
-    NavigationStack {
-        ExpenseListItemScreen(context: context, category: "Food")
-            .environment(\.managedObjectContext, context)
+        .onAppear {
+            // Make sure dynamic categories are updated for this category
+            categoryManager.updateDynamicCategories(from: controller.expenses)
+        }
     }
 }

@@ -1,9 +1,8 @@
-//
-//  ExpenseListController.swift
-//  ExpenseTracker_MVC
-//
-//  Created by Aravind sai Savaram on 16/02/26.
-//
+////
+////  ExpenseListController.swift
+////  ExpenseTracker_MVC
+////
+////  Created by Aravind sai Savaram on 16/02/26.
 
 import Foundation
 import CoreData
@@ -29,7 +28,7 @@ final class ExpenseListController: ObservableObject {
         self.context = context
         fetchExpenses()
 
-        // Optional: automatically update on context changes
+        // Observe Core Data changes
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(contextObjectsDidChange),
@@ -48,7 +47,10 @@ final class ExpenseListController: ObservableObject {
         for key in relevantKeys {
             if let objects = userInfo[key] as? Set<NSManagedObject>,
                objects.contains(where: { $0 is Expense }) {
-                fetchExpenses()
+                // Update the list on the main thread
+                Task { @MainActor in
+                    fetchExpenses()
+                }
                 break
             }
         }
@@ -56,8 +58,9 @@ final class ExpenseListController: ObservableObject {
 
     func fetchExpenses() {
         let request: NSFetchRequest<Expense> = Expense.fetchRequest()
+        request.predicate = nil  // fetch all, or you can filter by category if needed
 
-        // Sort dynamically based on sortKey and isAscending
+        // Sorting
         switch sortKey {
         case .amount:
             request.sortDescriptors = [NSSortDescriptor(keyPath: \Expense.amount, ascending: isAscending)]
@@ -73,18 +76,25 @@ final class ExpenseListController: ObservableObject {
         }
     }
 
+    // MARK: - Actions
+
     func deleteExpense(_ expense: Expense) {
         context.delete(expense)
+        saveContext()
+    }
+
+    func saveContext() {
         do {
-            try context.save()
-            // fetchExpenses() optional because context observer will handle it
+            if context.hasChanges {
+                try context.save()
+            }
         } catch {
-            print("Failed to delete expense: \(error.localizedDescription)")
+            print("Failed to save context: \(error.localizedDescription)")
         }
     }
 
     func toggleSortOrder() {
-        isAscending.toggle()
+        // isAscending is updated from the toggle binding
         fetchExpenses()
     }
 

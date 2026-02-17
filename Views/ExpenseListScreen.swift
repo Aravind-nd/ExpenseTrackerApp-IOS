@@ -14,7 +14,6 @@ struct ExpenseListScreen: View {
     @StateObject private var controller: ExpenseListController
     private let categories = ["Food", "Transport", "Shopping", "Bills", "Entertainment", "Other"]
 
-    // MARK: - Init
     init(context: NSManagedObjectContext) {
         _controller = StateObject(wrappedValue: ExpenseListController(context: context))
     }
@@ -39,7 +38,9 @@ struct ExpenseListScreen: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(categories, id: \.self) { category in
-                            NavigationLink(destination: ExpenseListItemScreen(context: viewContext, category: category)) {
+                            NavigationLink(
+                                destination: ExpenseListItemScreen(context: viewContext, category: category)
+                            ) {
                                 Text(category)
                                     .font(.headline)
                                     .foregroundColor(.white)
@@ -100,7 +101,9 @@ struct ExpenseListScreen: View {
                 } else {
                     List {
                         ForEach(controller.expenses) { expense in
-                            NavigationLink(destination: EditExpenseScreen(expense: expense, listController: controller)) {
+                            NavigationLink(
+                                destination: EditExpenseScreen(expense: expense, listController: controller)
+                            ) {
                                 HStack {
                                     HStack(spacing: 10) {
                                         Image(systemName: expense.symbolName ?? "creditcard.fill")
